@@ -1,0 +1,5 @@
+namespace Container;
+
+interface Container<+T as object> {
+    public function get(): T;
+}

@@ -1,0 +1,17 @@
+[package]
+name = "ara_source"
+version = "0.1.0"
+edition = "2021"
+description = "Ara source library for Ara Programming Language"
+readme = "README.md"
+repository = "https://github.com/ara-lang/source"
+documentation = "https://docs.rs/ara_source"
+homepage = "https://github.com/ara-lang/source"
+exclude = ["/.github/*"]
+authors = ["Saif Eddin Gmati <azjezz@protonmail.com>"]
+license = "MIT OR Apache-2.0"
+keywords = ["ara", "file-source", "source-map"]
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]

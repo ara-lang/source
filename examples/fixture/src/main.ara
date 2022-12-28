@@ -1,0 +1,5 @@
+use Psl\IO\write_line;
+
+function main(): void {
+    write_line('Hello, World!');
+}
