@@ -2,7 +2,7 @@
 name = "ara_source"
 version = "0.1.0"
 edition = "2021"
-description = "A Source library for Ara Programming Langauge 🗃"
+description = "A Source library for Ara Programming Language 🗃"
 readme = "README.md"
 repository = "https://github.com/ara-lang/source"
 documentation = "https://docs.rs/ara_source"

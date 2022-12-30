@@ -4,7 +4,7 @@
 [![Crates.io](https://img.shields.io/crates/v/ara_source.svg)](https://crates.io/crates/ara_source)
 [![Docs](https://docs.rs/ara_source/badge.svg)](https://docs.rs/ara_source/latest/ara_source/)
 
-A Source library for Ara Programming Langauge 🗃
+A Source library for Ara Programming Language 🗃
 
 ## Usage
 
