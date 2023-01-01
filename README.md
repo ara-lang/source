@@ -26,15 +26,7 @@ fn main() {
         std::env::var("CARGO_MANIFEST_DIR").unwrap()
     );
 
-    let map = loader::load_directories(
-        root.clone(),
-        vec![
-            format!("{}src", root),
-            format!("{}vendor/foo", root),
-            format!("{}vendor/bar", root),
-        ],
-    )
-    .unwrap();
+    let result = loader::load_directories(root, vec!["src", "vendor/foo", "vendor/bar"])?;
 
     println!("{:#?}", map);
 }

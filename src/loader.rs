@@ -1,3 +1,6 @@
+use std::path::Path;
+use std::path::PathBuf;
+
 use crate::error::Error;
 use crate::source::Source;
 use crate::source::SourceKind;
@@ -7,16 +10,16 @@ pub const ARA_SCRIPT_EXTENSION: &str = "ara";
 pub const ARA_DEFINTION_EXTENSION: &str = "d.ara";
 
 /// Load a source map from the given directories.
-pub fn load_directories<T: Into<String>, C: Into<String>>(
+pub fn load_directories<T: AsRef<Path>, C: AsRef<Path>>(
     root: T,
     directories: Vec<C>,
 ) -> Result<SourceMap, Error> {
     let mut map = SourceMap::new(vec![]);
 
-    let loader = DirectorySourceLoader::new(root.into());
+    let loader = DirectorySourceLoader::new(&root);
 
     for directory in directories {
-        loader.load_into(&directory.into(), &mut map)?;
+        loader.load_into(&directory, &mut map)?;
     }
 
     Ok(map)
@@ -26,17 +29,17 @@ pub trait SourceLoader: std::fmt::Debug {
     /// Check if the given name is supported by this loader.
     ///
     /// If `true` is returned, `load` *MUST NOT* return `Error::InvalidSource`.
-    fn supports(&self, name: &str) -> bool;
+    fn supports<T: AsRef<Path>>(&self, name: &T) -> bool;
 
     /// Load a source map from the given name.
     ///
     /// The source name can contain a path, directory, or any other information.
     ///
     /// If the source name is not valid, `Error::InvalidSource` is returned.
-    fn load(&self, name: &str) -> Result<SourceMap, Error>;
+    fn load<T: AsRef<Path>>(&self, name: &T) -> Result<SourceMap, Error>;
 
     /// Load a source from the given name and merge it into the given source map.
-    fn load_into(&self, name: &str, map: &mut SourceMap) -> Result<(), Error> {
+    fn load_into<T: AsRef<Path>>(&self, name: &T, map: &mut SourceMap) -> Result<(), Error> {
         let mut source = self.load(name)?;
 
         map.merge(&mut source);
@@ -47,28 +50,31 @@ pub trait SourceLoader: std::fmt::Debug {
 
 #[derive(Debug)]
 pub struct FileSourceLoader {
-    pub root: String,
+    pub root: PathBuf,
 }
 
 impl FileSourceLoader {
-    pub fn new(root: String) -> FileSourceLoader {
-        FileSourceLoader { root }
+    pub fn new<T: AsRef<Path>>(root: &T) -> FileSourceLoader {
+        FileSourceLoader {
+            root: root.as_ref().to_path_buf(),
+        }
     }
 }
 
 impl SourceLoader for FileSourceLoader {
-    fn supports(&self, name: &str) -> bool {
-        if !name.starts_with(&self.root) {
+    fn supports<T: AsRef<Path>>(&self, file: &T) -> bool {
+        let file = file.as_ref();
+        let file = if file.is_relative() {
+            self.root.join(file)
+        } else {
+            file.to_path_buf()
+        };
+
+        if !file.is_file() {
             return false;
         }
 
-        let path = std::path::Path::new(name);
-
-        if !path.is_file() {
-            return false;
-        }
-
-        match path.extension() {
+        match file.extension() {
             Some(extension) => {
                 let extension = match extension.to_str() {
                     Some(extension) => extension,
@@ -87,127 +93,100 @@ impl SourceLoader for FileSourceLoader {
         }
     }
 
-    fn load(&self, name: &str) -> Result<SourceMap, Error> {
-        if !self.supports(name) {
+    fn load<T: AsRef<Path>>(&self, file: &T) -> Result<SourceMap, Error> {
+        let file = file.as_ref();
+
+        if !self.supports(&file) {
             return Err(Error::InvalidSource(format!(
                 "source `{}` is not supported.",
-                name
+                file.to_string_lossy()
             )));
         }
 
-        let kind = if name.ends_with(ARA_DEFINTION_EXTENSION) {
+        let file = if file.is_relative() {
+            self.root.join(file)
+        } else {
+            file.to_path_buf()
+        };
+
+        let content = std::fs::read_to_string(&file)?;
+        let origin = file
+            .strip_prefix(&self.root)
+            .map(|path| path.to_string_lossy())
+            .unwrap();
+        let kind = if origin.ends_with(ARA_DEFINTION_EXTENSION) {
             SourceKind::Definition
         } else {
             SourceKind::Script
         };
 
-        let path = std::path::Path::new(&name);
-
-        std::fs::read_to_string(path)
-            .map_err(Error::IoError)
-            .map(|content| {
-                SourceMap::new(vec![Source::new(
-                    kind,
-                    name.strip_prefix(&self.root).unwrap(),
-                    content,
-                )])
-            })
+        Ok(SourceMap::new(vec![Source::new(kind, origin, content)]))
     }
 }
 
 #[derive(Debug)]
 pub struct DirectorySourceLoader {
-    pub root: String,
-    pub loaders: Vec<Box<dyn SourceLoader>>,
+    pub root: PathBuf,
+
+    loader: FileSourceLoader,
 }
 
 impl DirectorySourceLoader {
-    pub fn new<T: Into<String>>(root: T) -> DirectorySourceLoader {
-        let root = root.into();
-
+    pub fn new<T: AsRef<Path>>(root: &T) -> DirectorySourceLoader {
         DirectorySourceLoader {
-            root: root.clone(),
-            loaders: vec![Box::new(FileSourceLoader::new(root))],
+            root: root.as_ref().to_path_buf(),
+            loader: FileSourceLoader::new(root),
         }
-    }
-
-    pub fn add_loader(&mut self, loader: Box<dyn SourceLoader>) {
-        self.loaders.push(loader);
     }
 }
 
 impl SourceLoader for DirectorySourceLoader {
-    fn supports(&self, name: &str) -> bool {
-        if !name.starts_with(&self.root) {
-            return false;
-        }
-
-        let path = std::path::Path::new(name);
-
-        if !path.is_dir() {
-            return false;
-        }
-
-        let entries = match std::fs::read_dir(path) {
-            Ok(entries) => entries,
-            Err(_) => {
-                return false;
-            }
+    fn supports<T: AsRef<Path>>(&self, directory: &T) -> bool {
+        let directory = directory.as_ref();
+        let directory = if directory.is_relative() {
+            self.root.join(directory)
+        } else {
+            directory.to_path_buf()
         };
 
-        for entry in entries {
-            let entry = match entry {
-                Ok(entry) => entry,
-                Err(_) => {
-                    return false;
-                }
-            };
+        if !directory.starts_with(&self.root) {
+            return false;
+        }
 
-            let path = entry.path();
-            let name = match path.to_str() {
-                Some(name) => name,
-                None => {
-                    return false;
-                }
-            };
-
-            if path.is_dir() && !self.supports(name) {
-                return false;
-            }
+        if !directory.is_dir() {
+            return false;
         }
 
         true
     }
 
-    fn load(&self, name: &str) -> Result<SourceMap, Error> {
-        if !self.supports(name) {
+    fn load<T: AsRef<Path>>(&self, directory: &T) -> Result<SourceMap, Error> {
+        let directory = directory.as_ref();
+        if !self.supports(&directory) {
             return Err(Error::InvalidSource(format!(
                 "source `{}` is not supported.",
-                name
+                directory.to_string_lossy()
             )));
         }
 
-        let path = std::path::Path::new(&name);
+        let directory = if directory.is_relative() {
+            self.root.join(directory)
+        } else {
+            directory.to_path_buf()
+        };
 
         let mut map = SourceMap::new(vec![]);
 
-        let entries = std::fs::read_dir(path).unwrap();
+        let entries = std::fs::read_dir(directory)?;
 
         for entry in entries {
             let entry = entry.unwrap();
             let path = entry.path();
-            let name = path.to_str().unwrap();
 
             if path.is_dir() {
-                self.load_into(name, &mut map)?;
-            } else {
-                for loader in &self.loaders {
-                    if loader.supports(name) {
-                        loader.load_into(name, &mut map)?;
-
-                        break;
-                    }
-                }
+                self.load_into(&path, &mut map)?;
+            } else if self.loader.supports(&path) {
+                self.loader.load_into(&path, &mut map)?;
             }
         }
 
@@ -226,14 +205,7 @@ mod tests {
             std::env::var("CARGO_MANIFEST_DIR").unwrap()
         );
 
-        let result = load_directories(
-            root.clone(),
-            vec![
-                format!("{}src", root),
-                format!("{}vendor/foo", root),
-                format!("{}vendor/bar", root),
-            ],
-        );
+        let result = load_directories(root, vec!["src", "vendor/foo", "vendor/bar"]);
 
         let map = result.unwrap();
 
