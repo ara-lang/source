@@ -9,12 +9,12 @@ fn main() {
     let map = loader::load_directories(
         root.clone(),
         vec![
-            format!("{}src", root),
-            format!("{}vendor/foo", root),
-            format!("{}vendor/bar", root),
+            format!("{root}src"),
+            format!("{root}vendor/foo"),
+            format!("{root}vendor/bar"),
         ],
     )
     .unwrap();
 
-    println!("{:#?}", map);
+    println!("{map:#?}");
 }

@@ -14,9 +14,9 @@ impl From<std::io::Error> for Error {
 impl std::fmt::Display for Error {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Error::SourceNotFound(name) => write!(f, "source `{}` not found.", name),
-            Error::InvalidSource(message) => write!(f, "invalid source: {}", message),
-            Error::IoError(error) => write!(f, "io error: {}", error),
+            Error::SourceNotFound(name) => write!(f, "source `{name}` not found."),
+            Error::InvalidSource(message) => write!(f, "invalid source: {message}"),
+            Error::IoError(error) => write!(f, "io error: {error}"),
         }
     }
 }
