@@ -18,10 +18,10 @@ pub enum SourceKind {
 
 pub trait SourceTrait {
     /// Reads the source content.
-    fn content(&mut self) -> std::io::Result<String>;
+    fn content(&self) -> std::io::Result<String>;
 
     /// Returns the source content hash.
-    fn hash(&mut self) -> std::io::Result<u64>;
+    fn hash(&self) -> std::io::Result<u64>;
 }
 
 #[derive(Debug, PartialEq, Eq, Clone)]
@@ -134,7 +134,7 @@ impl Source {
 }
 
 impl SourceTrait for Source {
-    fn content(&mut self) -> std::io::Result<String> {
+    fn content(&self) -> std::io::Result<String> {
         let path = self
             .source_path()
             .expect("Both root and origin must be present in order to read the source content");
@@ -142,7 +142,7 @@ impl SourceTrait for Source {
         fs::read_to_string(path)
     }
 
-    fn hash(&mut self) -> std::io::Result<u64> {
+    fn hash(&self) -> std::io::Result<u64> {
         if self.content.is_some() {
             return Ok(self.hasher.hash(self.content.as_ref().unwrap()));
         }
