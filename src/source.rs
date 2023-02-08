@@ -135,6 +135,10 @@ impl Source {
 
 impl SourceTrait for Source {
     fn content(&self) -> std::io::Result<String> {
+        if self.content.is_some() {
+            return Ok(self.content.as_ref().unwrap().clone());
+        }
+
         let path = self
             .source_path()
             .expect("Both root and origin must be present in order to read the source content");
