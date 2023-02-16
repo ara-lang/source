@@ -2,6 +2,7 @@ use crate::error::Error;
 use crate::source::Source;
 
 pub mod error;
+pub mod hash;
 pub mod loader;
 pub mod source;
 
@@ -62,13 +63,13 @@ mod tests {
 
         map.add(Source::new(
             SourceKind::Script,
+            "/Documents/Project",
             "foo.ara",
-            "function foo(): void {}",
         ));
         map.add(Source::new(
             SourceKind::Script,
+            "/Documents/Project",
             "bar.ara",
-            "function bar(): void {}",
         ));
 
         assert_eq!(map.get(1).unwrap().origin, Some("foo.ara".to_string()));
@@ -89,8 +90,8 @@ mod tests {
 
         other.add(Source::new(
             SourceKind::Script,
+            "/Documents/Project",
             "baz.ara",
-            "function baz(): void {}",
         ));
 
         map.merge(&mut other);
