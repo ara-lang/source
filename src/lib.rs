@@ -2,7 +2,7 @@ use crate::error::Error;
 use crate::source::Source;
 
 pub mod error;
-pub(crate) mod hash;
+pub mod hash;
 pub mod loader;
 pub mod source;
 

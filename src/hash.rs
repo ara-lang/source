@@ -13,6 +13,12 @@ impl FxHasher {
     }
 }
 
+impl Default for FxHasher {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl ContentHasher for FxHasher {
     fn hash(&self, content: &str) -> u64 {
         let mut hasher = rustc_hash::FxHasher::default();

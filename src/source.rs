@@ -1,5 +1,6 @@
 use std::fs;
 use std::path::PathBuf;
+use std::sync::Arc;
 
 use crate::hash::ContentHasher;
 use crate::hash::FxHasher;
@@ -16,20 +17,12 @@ pub enum SourceKind {
     Script,
 }
 
-pub trait SourceTrait {
-    /// Reads the source content.
-    fn content(&self) -> std::io::Result<String>;
-
-    /// Returns the source content hash.
-    fn hash(&self) -> std::io::Result<u64>;
-}
-
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct Source {
     pub kind: SourceKind,
     pub root: Option<PathBuf>,
     pub origin: Option<String>,
-    pub content: Option<String>,
+    pub content: Option<Arc<String>>,
     hasher: FxHasher,
 }
 
@@ -77,7 +70,7 @@ impl Source {
     /// assert_eq!(source.kind, SourceKind::Definition);
     /// assert_eq!(source.root, None);
     /// assert_eq!(source.origin, None);
-    /// assert_eq!(source.content, Some("function main(): void {}".to_string()));
+    /// assert_eq!(source.content.as_ref().unwrap().as_str(), "function main(): void {}");
     ///
     /// assert_eq!(source.name(), "<unknown>");
     /// ```
@@ -86,7 +79,7 @@ impl Source {
             kind,
             root: None,
             origin: None,
-            content: Some(content.into()),
+            content: Some(Arc::new(content.into())),
             hasher: FxHasher::new(),
         }
     }
@@ -131,28 +124,33 @@ impl Source {
             .as_ref()
             .map(|root| root.join(self.origin.as_ref().unwrap()))
     }
-}
 
-impl SourceTrait for Source {
-    fn content(&self) -> std::io::Result<String> {
-        if self.content.is_some() {
-            return Ok(self.content.as_ref().unwrap().clone());
+    /// Returns the content of the source.
+    /// If the source has no content, the content is read from the file system.
+    pub fn content(&mut self) -> std::io::Result<Arc<String>> {
+        if let Some(content) = self.content.as_ref() {
+            return Ok(content.clone());
         }
 
         let path = self
             .source_path()
             .expect("Both root and origin must be present in order to read the source content");
 
-        fs::read_to_string(path)
+        let content = Arc::new(fs::read_to_string(path)?);
+        self.content = Some(content.clone());
+
+        Ok(content)
     }
 
-    fn hash(&self) -> std::io::Result<u64> {
-        if self.content.is_some() {
-            return Ok(self.hasher.hash(self.content.as_ref().unwrap()));
-        }
-
+    /// Returns the hash of the source content.
+    pub fn hash(&mut self) -> std::io::Result<u64> {
         let content = self.content()?;
 
         Ok(self.hasher.hash(&content))
+    }
+
+    /// Dispose the content of the source.
+    pub fn dispose_content(&mut self) {
+        self.content = None;
     }
 }
