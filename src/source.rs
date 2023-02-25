@@ -1,4 +1,6 @@
 use std::fs;
+use std::io::BufReader;
+use std::io::Read;
 use std::path::PathBuf;
 use std::sync::Arc;
 
@@ -136,10 +138,14 @@ impl Source {
             .source_path()
             .expect("Both root and origin must be present in order to read the source content");
 
-        let content = Arc::new(fs::read_to_string(path)?);
-        self.content = Some(content.clone());
+        let mut reader = BufReader::new(fs::File::open(path)?);
+        let mut file_contents = String::new();
+        reader.read_to_string(&mut file_contents)?;
 
-        Ok(content)
+        let content_reference = Arc::new(file_contents);
+        self.content = Some(content_reference.clone());
+
+        Ok(content_reference)
     }
 
     /// Returns the hash of the source content.
