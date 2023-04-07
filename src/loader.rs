@@ -109,18 +109,18 @@ impl SourceLoader for FileSourceLoader {
             file.to_path_buf()
         };
 
-        let content = std::fs::read_to_string(&file)?;
         let origin = file
             .strip_prefix(&self.root)
             .map(|path| path.to_string_lossy())
             .unwrap();
+
         let kind = if origin.ends_with(ARA_DEFINTION_EXTENSION) {
             SourceKind::Definition
         } else {
             SourceKind::Script
         };
 
-        Ok(SourceMap::new(vec![Source::new(kind, origin, content)]))
+        Ok(SourceMap::new(vec![Source::new(kind, &self.root, origin)]))
     }
 }
 
